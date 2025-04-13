@@ -1,0 +1,37 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: latest
+    commands:
+      - echo "Installing Terraform..."
+      - wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+      - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+      - sudo apt update && sudo apt install terraform
+      - terraform --version  # Verify that Terraform was installed correctly
+  pre_build:
+    commands:
+      - echo "Initializing Terraform..."
+      - terraform init
+  build:
+    commands:
+      - echo "Validating Terraform configuration..."
+      - terraform validate
+      - terraform plan -out=tfplan  # Generate the Terraform plan
+      - |
+        if [ $? -ne 0 ]; then
+          echo "Terraform plan failed, exiting build..."
+          exit 1  # Exit the build process if terraform plan fails
+        fi
+      - terraform apply -auto-approve tfplan  # Apply the Terraform plan if plan is successful
+  post_build:
+    commands:
+      - echo "Checking the result of terraform apply..."
+      - |
+        if [ $? -ne 0 ]; then
+          echo "Terraform apply failed."
+          exit 1  # Exit with error to indicate failure, without destroying infrastructure
+        else:
+          echo "Terraform apply succeeded."
+        fi
